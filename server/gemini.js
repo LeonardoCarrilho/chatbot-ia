@@ -1,7 +1,7 @@
 // Cliente mínimo da API REST do Gemini (generateContent), sem SDK.
 const INSTRUCAO = "Você é um assistente prestativo e objetivo. Responda em português do Brasil, a menos que o usuário peça outro idioma.";
 
-export function criarGemini({ chave, modelo = "gemini-2.5-flash", fetchFn = fetch }) {
+export function criarGemini({ chave, modelo = "gemini-flash-latest", fetchFn = fetch }) {
   if (!chave) throw new Error("GEMINI_API_KEY não definida. Copie .env.example para .env e preencha.");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
 
