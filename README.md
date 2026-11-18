@@ -30,3 +30,6 @@ A chave da API fica só no servidor; o navegador nunca a vê.
 Requer Node.js 20.6 ou mais recente.
 
 Projeto do módulo bônus de projetos full stack do curso Full Stack Turbo (TipsCode).
+
+## Deploy na Vercel
+O arquivo `vercel.json` e a pasta `api/` fazem o projeto rodar como função serverless na Vercel. Na Vercel, configure `GEMINI_API_KEY` nas variáveis de ambiente do projeto.
