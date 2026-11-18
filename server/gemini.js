@@ -11,6 +11,7 @@ export function criarGemini({
   reserva = "gemini-flash-lite-latest",
   tentativas = 2,
   pausaMs = 800,
+  limiteMs = 12000, // pior caso: 2 modelos x 2 tentativas x 12s < 60s (maxDuration na Vercel)
   fetchFn = fetch,
 }) {
   if (!chave) throw new Error("GEMINI_API_KEY não definida. Copie .env.example para .env e preencha.");
@@ -18,8 +19,11 @@ export function criarGemini({
 
   async function chamar(nomeModelo, mensagens) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${nomeModelo}:generateContent`;
-    const r = await fetchFn(url, {
-      method: "POST",
+    let r;
+    try {
+      r = await fetchFn(url, {
+        signal: AbortSignal.timeout(limiteMs),
+        method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: INSTRUCAO }] },
@@ -28,7 +32,13 @@ export function criarGemini({
           parts: [{ text: m.texto }],
         })),
       }),
-    });
+      });
+    } catch (e) {
+      // Tempo esgotado ou falha de rede: trata como indisponibilidade temporária.
+      const erro = new Error(`[${nomeModelo}] ${e.name === "TimeoutError" ? `sem resposta em ${limiteMs / 1000}s` : e.message}`);
+      erro.status = 503;
+      throw erro;
+    }
     const dados = await r.json().catch(() => ({}));
     if (!r.ok) {
       const erro = new Error(`[${nomeModelo}] ${dados.error?.message || `Gemini respondeu ${r.status}`}`);

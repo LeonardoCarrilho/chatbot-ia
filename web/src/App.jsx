@@ -24,6 +24,7 @@ export default function App() {
     setCarregando(true);
     try {
       const r = await fetch(`${API}/chat`, {
+        signal: AbortSignal.timeout(60000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mensagens: historico }),
@@ -32,7 +33,12 @@ export default function App() {
       if (!r.ok) throw new Error(dados.erro || "Erro ao responder.");
       setMensagens((m) => [...m, { papel: "bot", texto: dados.resposta }]);
     } catch (e) {
-      setErro(e.message === "Failed to fetch" ? "Servidor indisponível. Ele está rodando?" : e.message);
+      setErro(
+        e.name === "TimeoutError" ? "A IA demorou demais para responder. Tente de novo."
+          : e.message === "Failed to fetch" ? "Servidor indisponível. Ele está rodando?"
+          : e instanceof SyntaxError ? "O servidor não respondeu corretamente. Tente de novo."
+          : e.message
+      );
       setMensagens((m) => m.slice(0, -1));
       setTexto(pergunta);
     } finally {

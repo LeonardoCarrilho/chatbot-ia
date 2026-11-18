@@ -106,6 +106,16 @@ test("sobrecarga persistente vira 503 com mensagem amigável", async () => {
   fechar();
 });
 
+test("chamada que não responde é interrompida e conta como sobrecarga", async () => {
+  // fetch que só termina quando o sinal de tempo-limite dispara
+  const travado = (url, { signal }) =>
+    new Promise((_, falhar) => signal.addEventListener("abort", () => falhar(signal.reason)));
+  const responder = criarGemini({ chave: "k", limiteMs: 50, pausaMs: 1, fetchFn: travado });
+  const inicio = Date.now();
+  await assert.rejects(responder([{ papel: "usuario", texto: "oi" }]), (e) => e.sobrecarga && /sem resposta/.test(e.message));
+  assert.ok(Date.now() - inicio < 2000);
+});
+
 test("cliente Gemini exige a chave", () => {
   assert.throws(() => criarGemini({ chave: "" }), /GEMINI_API_KEY/);
 });
