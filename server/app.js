@@ -44,6 +44,9 @@ export function criarApp({ responder, origem = "*", limite = 20 }) {
       res.json({ resposta: await responder(req.body.mensagens) });
     } catch (e) {
       console.error("Erro na IA:", e.message);
+      if (e.sobrecarga) {
+        return res.status(503).json({ erro: "A IA está com muita demanda agora. Tente de novo em alguns segundos." });
+      }
       res.status(502).json({ erro: "Não consegui falar com a IA agora. Tente novamente." });
     }
   });

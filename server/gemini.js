@@ -1,11 +1,23 @@
 // Cliente mínimo da API REST do Gemini (generateContent), sem SDK.
+// Em sobrecarga (429/500/503), tenta de novo e depois usa um modelo reserva.
 const INSTRUCAO = "Você é um assistente prestativo e objetivo. Responda em português do Brasil, a menos que o usuário peça outro idioma.";
+const TEMPORARIO = new Set([429, 500, 503]);
 
-export function criarGemini({ chave, modelo = "gemini-flash-latest", fetchFn = fetch }) {
+const esperar = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+export function criarGemini({
+  chave,
+  modelo = "gemini-flash-latest",
+  reserva = "gemini-flash-lite-latest",
+  tentativas = 2,
+  pausaMs = 800,
+  fetchFn = fetch,
+}) {
   if (!chave) throw new Error("GEMINI_API_KEY não definida. Copie .env.example para .env e preencha.");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`;
+  const modelos = [...new Set([modelo, reserva].filter(Boolean))];
 
-  return async function responder(mensagens) {
+  async function chamar(nomeModelo, mensagens) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${nomeModelo}:generateContent`;
     const r = await fetchFn(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": chave },
@@ -19,12 +31,30 @@ export function criarGemini({ chave, modelo = "gemini-flash-latest", fetchFn = f
     });
     const dados = await r.json().catch(() => ({}));
     if (!r.ok) {
-      const erro = new Error(dados.error?.message || `Gemini respondeu ${r.status}`);
+      const erro = new Error(`[${nomeModelo}] ${dados.error?.message || `Gemini respondeu ${r.status}`}`);
       erro.status = r.status;
       throw erro;
     }
     const texto = dados.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ?? "";
-    if (!texto) throw new Error("A IA não retornou texto (a resposta pode ter sido bloqueada).");
+    if (!texto) throw new Error(`[${nomeModelo}] A IA não retornou texto (a resposta pode ter sido bloqueada).`);
     return texto;
+  }
+
+  return async function responder(mensagens) {
+    let ultimoErro;
+    for (const nomeModelo of modelos) {
+      for (let t = 1; t <= tentativas; t++) {
+        try {
+          return await chamar(nomeModelo, mensagens);
+        } catch (e) {
+          ultimoErro = e;
+          if (!TEMPORARIO.has(e.status)) throw e; // chave inválida, modelo inexistente etc.: não adianta repetir
+          console.warn(`Gemini temporariamente indisponível (${e.message}); tentativa ${t}/${tentativas}`);
+          if (t < tentativas) await esperar(pausaMs * t);
+        }
+      }
+    }
+    ultimoErro.sobrecarga = true;
+    throw ultimoErro;
   };
 }

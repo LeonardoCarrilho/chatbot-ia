@@ -73,6 +73,39 @@ test("cliente Gemini monta a requisição e lê a resposta", async () => {
   assert.deepEqual(pedido.corpo.contents.map((c) => c.role), ["user", "model", "user"]);
 });
 
+const respostaGemini = (status, corpo) => new Response(JSON.stringify(corpo), { status });
+const ok = (texto) => respostaGemini(200, { candidates: [{ content: { parts: [{ text: texto }] } }] });
+const sobrecarga = () => respostaGemini(503, { error: { message: "high demand" } });
+
+test("em sobrecarga, tenta de novo e depois usa o modelo reserva", async () => {
+  const urls = [];
+  const respostas = [sobrecarga(), sobrecarga(), ok("Resposta do reserva")];
+  const fetchFalso = async (url) => (urls.push(url), respostas.shift());
+  const responder = criarGemini({ chave: "k", modelo: "principal", reserva: "reserva", pausaMs: 1, fetchFn: fetchFalso });
+  assert.equal(await responder([{ papel: "usuario", texto: "oi" }]), "Resposta do reserva");
+  assert.equal(urls.length, 3);
+  assert.match(urls[0], /principal/);
+  assert.match(urls[1], /principal/);
+  assert.match(urls[2], /reserva/);
+});
+
+test("erro definitivo (chave inválida) não é repetido", async () => {
+  let chamadas = 0;
+  const fetchFalso = async () => (chamadas++, respostaGemini(400, { error: { message: "API key not valid" } }));
+  const responder = criarGemini({ chave: "k", pausaMs: 1, fetchFn: fetchFalso });
+  await assert.rejects(responder([{ papel: "usuario", texto: "oi" }]), /API key not valid/);
+  assert.equal(chamadas, 1);
+});
+
+test("sobrecarga persistente vira 503 com mensagem amigável", async () => {
+  const responder = criarGemini({ chave: "k", pausaMs: 1, fetchFn: async () => sobrecarga() });
+  const { chat, fechar } = await subir({ responder });
+  const r = await chat([{ papel: "usuario", texto: "oi" }]);
+  assert.equal(r.status, 503);
+  assert.match(r.json.erro, /muita demanda/);
+  fechar();
+});
+
 test("cliente Gemini exige a chave", () => {
   assert.throws(() => criarGemini({ chave: "" }), /GEMINI_API_KEY/);
 });
