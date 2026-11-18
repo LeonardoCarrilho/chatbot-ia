@@ -2,6 +2,8 @@
 
 Chat com inteligência artificial: front-end em **React**, back-end em **Node.js + Express** e respostas do **Google Gemini**.
 
+🔗 **Ao vivo:** https://chatbot-ia-amber.vercel.app
+
 ```
 React (web)  →  Express (server)  →  API do Gemini
 ```
