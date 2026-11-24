@@ -81,7 +81,7 @@ test("em sobrecarga, tenta de novo e depois usa o modelo reserva", async () => {
   const urls = [];
   const respostas = [sobrecarga(), sobrecarga(), ok("Resposta do reserva")];
   const fetchFalso = async (url) => (urls.push(url), respostas.shift());
-  const responder = criarGemini({ chave: "k", modelo: "principal", reserva: "reserva", pausaMs: 1, fetchFn: fetchFalso });
+  const responder = criarGemini({ chave: "k", modelo: "principal", reserva: "reserva", tentativas: 2, pausaMs: 1, fetchFn: fetchFalso });
   assert.equal(await responder([{ papel: "usuario", texto: "oi" }]), "Resposta do reserva");
   assert.equal(urls.length, 3);
   assert.match(urls[0], /principal/);
@@ -118,4 +118,14 @@ test("chamada que não responde é interrompida e conta como sobrecarga", async 
 
 test("cliente Gemini exige a chave", () => {
   assert.throws(() => criarGemini({ chave: "" }), /GEMINI_API_KEY/);
+});
+
+test("por padrão, em sobrecarga, passa direto para o modelo reserva", async () => {
+  const urls = [];
+  const respostas = [sobrecarga(), ok("Resposta do reserva")];
+  const fetchFalso = async (url) => (urls.push(url), respostas.shift());
+  const responder = criarGemini({ chave: "k", modelo: "principal", reserva: "reserva", pausaMs: 1, fetchFn: fetchFalso });
+  assert.equal(await responder([{ papel: "usuario", texto: "oi" }]), "Resposta do reserva");
+  assert.equal(urls.length, 2);
+  assert.match(urls[1], /reserva/);
 });

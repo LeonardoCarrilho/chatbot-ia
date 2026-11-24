@@ -19,6 +19,11 @@ export default function App() {
   const [erro, setErro] = useState("");
   const fim = useRef(null);
 
+  // Acorda a função do servidor assim que a página abre, para a primeira resposta não pagar a partida a frio.
+  useEffect(() => {
+    fetch(`${API}/saude`).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fim.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens, carregando]);

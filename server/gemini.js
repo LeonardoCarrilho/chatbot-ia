@@ -9,9 +9,9 @@ export function criarGemini({
   chave,
   modelo = "gemini-flash-latest",
   reserva = "gemini-flash-lite-latest",
-  tentativas = 2,
+  tentativas = 1,
   pausaMs = 800,
-  limiteMs = 12000, // pior caso: 2 modelos x 2 tentativas x 12s < 60s (maxDuration na Vercel)
+  limiteMs = 9000, // pior caso: 2 modelos x 1 tentativa x 9s; em sobrecarga, troca logo para o modelo reserva
   fetchFn = fetch,
 }) {
   if (!chave) throw new Error("GEMINI_API_KEY não definida. Copie .env.example para .env e preencha.");
